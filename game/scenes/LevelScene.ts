@@ -232,6 +232,7 @@ export default class LevelScene extends Phaser.Scene {
 
   private loadLevelFromUrl(): number {
     try {
+      if (typeof window === "undefined") return 1;
       const params = new URLSearchParams(window.location.search);
       const raw = params.get("level");
       const lvl = raw ? parseInt(raw, 10) : 1;
@@ -597,8 +598,8 @@ export default class LevelScene extends Phaser.Scene {
         blk.kind === "wood"
           ? 0x9a6b3f
           : blk.kind === "stone"
-          ? 0x7a8591
-          : 0x8a8a8a;
+            ? 0x7a8591
+            : 0x8a8a8a;
 
       const rect = this.add.rectangle(p.x, p.y, bw, bh, color).setDepth(2);
       rect.setStrokeStyle(1, 0x000000, 0.15);
