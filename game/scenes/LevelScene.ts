@@ -26,21 +26,19 @@ export default class LevelScene extends Phaser.Scene {
 
   private levelComplete = false;
 
-  private readonly MAX_BOUNCES = 5;
-  private readonly MIN_BOUNCE_SPEED = 2.5;
+  private readonly MAX_BOUNCES = 12;
+  private readonly MIN_BOUNCE_SPEED = 1;
 
   private isProjectileInFlight = false;
 
-  // Failsafe tracking so game can't stall
   private flightStartMs = 0;
   private lowSpeedStartMs = 0;
   private readonly MAX_FLIGHT_MS = 6500;
   private readonly RESTING_MS_TO_END = 1400;
   private readonly LOW_SPEED_THRESHOLD = 0.35;
 
-  // ✅ Virus HP system: small hits accumulate damage
   private readonly VIRUS_HP = 3;
-  private readonly DAMAGE_MIN_SPEED = 0.9; // smaller than kill threshold
+  private readonly DAMAGE_MIN_SPEED = 0.9;
   private virusHp = new Map<MatterJS.BodyType, number>();
 
   constructor() {
@@ -48,7 +46,6 @@ export default class LevelScene extends Phaser.Scene {
   }
 
   create() {
-    // Always load current level from URL when scene starts
     this.level = this.loadLevelFromUrl();
 
     const w = this.scale.width;
@@ -66,20 +63,17 @@ export default class LevelScene extends Phaser.Scene {
 
     this.matter.world.setBounds(0, 0, w, h);
 
-    // Right wall stopper
     this.matter.add.rectangle(w - 6, h / 2, 12, h, {
       isStatic: true,
       label: "wall",
     });
 
-    // Ground
     this.matter.add.rectangle(w / 2, h - 24, w, 48, {
       isStatic: true,
       label: "ground",
     });
     this.add.rectangle(w / 2, h - 24, w, 48, 0x18213a).setDepth(0);
 
-    // Decorative servers
     for (let i = 0; i < 4; i++) {
       const sx = 70;
       const sy = h - 90 - i * 70;
@@ -96,7 +90,6 @@ export default class LevelScene extends Phaser.Scene {
       });
     }
 
-    // UI
     this.uiText = this.add
       .text(16, 16, "", {
         fontFamily: "system-ui",
@@ -105,18 +98,14 @@ export default class LevelScene extends Phaser.Scene {
       })
       .setDepth(10);
 
-    // Sling anchor
     this.slingAnchor = new Phaser.Math.Vector2(170, h - 140);
     this.add.circle(this.slingAnchor.x, this.slingAnchor.y, 10, 0xffffff, 0.15);
 
-    // Build + spawn
     this.buildLevel();
     this.spawnProjectile();
 
-    // Collisions
     this.setupCollisionSystem();
 
-    // Input
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
       if (!this.projectile || this.levelComplete) return;
       if (this.isProjectileInFlight) return;
@@ -141,8 +130,7 @@ export default class LevelScene extends Phaser.Scene {
       );
 
       const len = pull.length();
-      if (len > GAME_CONFIG.sling.maxPull)
-        pull.setLength(GAME_CONFIG.sling.maxPull);
+      if (len > GAME_CONFIG.sling.maxPull) pull.setLength(GAME_CONFIG.sling.maxPull);
 
       const newPos = new Phaser.Math.Vector2(
         this.slingAnchor.x - pull.x,
@@ -168,9 +156,8 @@ export default class LevelScene extends Phaser.Scene {
         x: pull.x * this.launchPower,
         y: pull.y * this.launchPower,
       };
-      this.projectile.applyForce(
-        new Phaser.Math.Vector2(forceVec.x, forceVec.y)
-      );
+
+      this.projectile.applyForce(new Phaser.Math.Vector2(forceVec.x, forceVec.y));
       this.projectile.setAngularVelocity(0.12);
 
       this.isProjectileInFlight = true;
@@ -186,7 +173,6 @@ export default class LevelScene extends Phaser.Scene {
   update() {
     this.uiText.setText(`Level ${this.level}  •  Shots: ${this.shotsLeft}`);
 
-    // Sync blocks
     for (let i = 0; i < this.blockBodies.length; i++) {
       const body = this.blockBodies[i] as any;
       const rect = this.blockSprites[i];
@@ -194,7 +180,6 @@ export default class LevelScene extends Phaser.Scene {
       rect.setRotation(body.angle);
     }
 
-    // Process kills
     if (this.pendingKills.length > 0) {
       const toKill = this.pendingKills;
       this.pendingKills = [];
@@ -203,12 +188,7 @@ export default class LevelScene extends Phaser.Scene {
       }
     }
 
-    // Failsafe for stuck projectiles
-    if (
-      this.isProjectileInFlight &&
-      this.projectile &&
-      this.projectile.active
-    ) {
+    if (this.isProjectileInFlight && this.projectile && this.projectile.active) {
       const body = this.projectile.body as any;
       const v = body?.velocity ?? { x: 0, y: 0 };
       const speed = Math.sqrt(v.x * v.x + v.y * v.y);
@@ -236,7 +216,8 @@ export default class LevelScene extends Phaser.Scene {
       const params = new URLSearchParams(window.location.search);
       const raw = params.get("level");
       const lvl = raw ? parseInt(raw, 10) : 1;
-      if (Number.isFinite(lvl) && lvl >= 1 && lvl <= 2) return lvl;
+      // ✅ allow 1..3 now
+      if (Number.isFinite(lvl) && lvl >= 1 && lvl <= 3) return lvl;
       return 1;
     } catch {
       return 1;
@@ -281,12 +262,7 @@ export default class LevelScene extends Phaser.Scene {
         const aLabel = (bodyA as any).label as string | undefined;
         const bLabel = (bodyB as any).label as string | undefined;
 
-        // ---- Projectile bounce counting ----
-        if (
-          this.projectile &&
-          this.projectile.body &&
-          this.isProjectileInFlight
-        ) {
+        if (this.projectile && this.projectile.body && this.isProjectileInFlight) {
           const projBody = this.projectile.body as MatterJS.BodyType;
           const isProjInPair = bodyA === projBody || bodyB === projBody;
 
@@ -295,8 +271,7 @@ export default class LevelScene extends Phaser.Scene {
             const speed = Math.sqrt(v.x * v.x + v.y * v.y);
 
             if (speed > this.MIN_BOUNCE_SPEED) {
-              const current =
-                (this.projectile.getData("bounces") as number) ?? 0;
+              const current = (this.projectile.getData("bounces") as number) ?? 0;
               const next = current + 1;
               this.projectile.setData("bounces", next);
 
@@ -308,10 +283,7 @@ export default class LevelScene extends Phaser.Scene {
           }
         }
 
-        // ---- Virus damage (impact + cumulative HP) ----
-        const virusBody =
-          aLabel === "virus" ? bodyA : bLabel === "virus" ? bodyB : null;
-
+        const virusBody = aLabel === "virus" ? bodyA : bLabel === "virus" ? bodyB : null;
         if (!virusBody) continue;
         if (this.deadVirusBodies.has(virusBody)) continue;
 
@@ -324,20 +296,17 @@ export default class LevelScene extends Phaser.Scene {
         const virusObj = this.findVirusByBody(virusBody);
         if (!virusObj) continue;
 
-        // Big smash = immediate kill (existing behavior)
         if (relSpeed >= GAME_CONFIG.virusImpactThreshold) {
           this.deadVirusBodies.add(virusBody);
           this.pendingKills.push(virusObj);
           continue;
         }
 
-        // Smaller hits accumulate damage (new behavior)
         if (relSpeed >= this.DAMAGE_MIN_SPEED) {
           const hp = this.virusHp.get(virusBody) ?? this.VIRUS_HP;
           const newHp = hp - 1;
           this.virusHp.set(virusBody, newHp);
 
-          // tiny visual feedback (quick flash)
           this.tweens.add({
             targets: virusObj,
             alpha: 0.6,
@@ -412,7 +381,6 @@ export default class LevelScene extends Phaser.Scene {
     const vBody = virus.body as MatterJS.BodyType;
     (vBody as any).label = "virus";
 
-    // init HP
     this.virusHp.set(vBody, this.VIRUS_HP);
 
     return virus;
@@ -481,12 +449,7 @@ export default class LevelScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(201);
 
-    const makeButton = (
-      label: string,
-      x: number,
-      y: number,
-      onClick: () => void
-    ) => {
+    const makeButton = (label: string, x: number, y: number, onClick: () => void) => {
       const btnBg = this.add
         .rectangle(x, y, 200, 44, 0x1f2a44, 0.95)
         .setStrokeStyle(2, 0x4e5aa0, 1)
@@ -506,7 +469,8 @@ export default class LevelScene extends Phaser.Scene {
     };
 
     const nextLevel = this.level + 1;
-    if (nextLevel <= 2) {
+    // ✅ up to 3 now
+    if (nextLevel <= 3) {
       makeButton("Next Level", w / 2, h / 2 + 20, () => {
         window.location.href = `/play?level=${nextLevel}`;
       });
@@ -523,7 +487,6 @@ export default class LevelScene extends Phaser.Scene {
     const w = this.scale.width;
     const h = this.scale.height;
 
-    // ✅ Full-screen interactive hit area so tap ALWAYS restarts
     const hit = this.add
       .rectangle(w / 2, h / 2, w, h, 0x000000, 0.6)
       .setDepth(200)
@@ -550,10 +513,6 @@ export default class LevelScene extends Phaser.Scene {
     hit.once("pointerdown", () => this.scene.restart());
   }
 
-  // ---------------------------
-  // Levels
-  // ---------------------------
-
   private worldToScreen(x: number, y: number) {
     const designW = 1200;
     const designH = 700;
@@ -579,7 +538,6 @@ export default class LevelScene extends Phaser.Scene {
     this.clearLevel();
     const data = getLevel(this.level);
 
-    // Blocks
     for (const blk of data.blocks) {
       const p = this.worldToScreen(blk.x, blk.y);
       const bw = blk.w * p.sx;
@@ -595,18 +553,13 @@ export default class LevelScene extends Phaser.Scene {
       this.blockBodies.push(body);
 
       const color =
-        blk.kind === "wood"
-          ? 0x9a6b3f
-          : blk.kind === "stone"
-            ? 0x7a8591
-            : 0x8a8a8a;
+        blk.kind === "wood" ? 0x9a6b3f : blk.kind === "stone" ? 0x7a8591 : 0x8a8a8a;
 
       const rect = this.add.rectangle(p.x, p.y, bw, bh, color).setDepth(2);
       rect.setStrokeStyle(1, 0x000000, 0.15);
       this.blockSprites.push(rect);
     }
 
-    // Viruses
     for (const vz of data.viruses) {
       const p = this.worldToScreen(vz.x, vz.y);
       const diameter = Math.max(20, vz.r * 2 * p.sx);

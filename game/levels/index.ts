@@ -1,5 +1,6 @@
 import level1 from "./level1.json";
 import level2 from "./level2.json";
+import level3 from "./level3.json";
 
 export type LevelData = {
   viruses: { x: number; y: number; r: number }[];
@@ -13,5 +14,7 @@ export type LevelData = {
 };
 
 export function getLevel(level: number): LevelData {
-  return level === 2 ? (level2 as LevelData) : (level1 as LevelData);
+  if (level === 2) return level2 as LevelData;
+  if (level === 3) return level3 as LevelData;
+  return level1 as LevelData;
 }
